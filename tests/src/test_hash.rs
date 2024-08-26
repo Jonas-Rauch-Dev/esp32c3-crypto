@@ -4,20 +4,32 @@ use log::{error, info};
 
 
 pub fn test_hash() {
+    let mut error_count = 0;
     match test_sha1() {
         Ok(_) => info!("SHA1 tests passed"),
-        Err(e) => error!("SHA1 test failed with: {e}"),
+        Err(e) => {
+            error!("SHA1 test failed with: {e}");
+            error_count += 1;
+        },
     }
 
     match test_sha224() {
         Ok(_) => info!("SHA224 tests passed"),
-        Err(e) => error!("SHA224 test failed with: {e}"),
+        Err(e) => {
+            error!("SHA224 test failed with: {e}");
+            error_count += 1;
+        },
     }
 
     match test_sha256() {
         Ok(_) => info!("SHA256 tests passed"),
-        Err(e) => error!("SHA256 test failed with: {e}"),
+        Err(e) => {
+            error!("SHA256 test failed with: {e}");
+            error_count += 1;
+        },
     }
+
+    log::warn!("{error_count} of 3 hash algortihm tests failed.");
 }
 
 fn test_hash_function(data: &[u8], out: &mut [u8], expected: &[u8], hash: &mut Hash) -> Result<(), &'static str> {

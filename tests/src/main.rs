@@ -6,7 +6,12 @@ use esp_hal::{
     clock::ClockControl, delay::Delay, peripherals::Peripherals, prelude::*, system::SystemControl
 };
 
+use esp_32c3_crypto::rsa::{RsaKeySize1024, RsaKeySize2048, RsaKeySize4096, RsaPrivateKey, RsaPublicKey};
+
+
 mod test_hash;
+mod test_key_parsing;
+
 
 #[entry]
 fn main() -> ! {
@@ -20,8 +25,11 @@ fn main() -> ! {
 
     test_hash::test_hash();
 
+    test_key_parsing::test_rsa_key_parsing();
+
     loop {
         log::info!("Tests done!");
         delay.delay(30.secs());
     }
 }
+
