@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 use esp_hal::peripheral::Peripheral;
 use esp_hal::prelude::nb::block;
 use esp_hal::sha::{Sha, ShaMode};
@@ -5,41 +7,48 @@ use esp_hal::peripherals::SHA;
 use esp_hal::Blocking;
 use log::error;
 
-#[derive(Clone, Debug)]
-pub struct Algorithm {
-    pub(crate) hash_algorithm: ShaMode,
-    pub(crate) output_len: usize,
+
+pub trait HashAlgorithm {
+    const hash_algorithm: ShaMode;
+    const output_len: usize;
+    const prefix_len: usize;
 }
 
-pub static ESP_32C3_SHA256: Algorithm = Algorithm {
-    hash_algorithm: ShaMode::SHA256,
-    output_len: 32,
-};
 
-pub static ESP_32C3_SHA224: Algorithm = Algorithm {
-    hash_algorithm: ShaMode::SHA224,
-    output_len: 28,
-};
+pub struct Esp32C3Sha256;
 
-pub static ESP_32C3_SHA1: Algorithm = Algorithm {
-    hash_algorithm: ShaMode::SHA1,
-    output_len: 20,
-};
+impl HashAlgorithm for Esp32C3Sha256 {
+    const hash_algorithm: ShaMode = ShaMode::SHA256;
+    const output_len: usize = 32;
+    const prefix_len: usize = 19;
+}
 
-pub struct Hash {
+pub struct Esp32C3Sha224;
+impl HashAlgorithm for Esp32C3Sha224 {
+    const hash_algorithm: ShaMode = ShaMode::SHA224;
+    const output_len: usize = 28;
+    const prefix_len: usize = 19;
+}
+
+pub struct Esp32C3Sha1;
+impl HashAlgorithm for Esp32C3Sha1 {
+    const hash_algorithm: ShaMode = ShaMode::SHA1;
+    const output_len: usize = 20;
+    const prefix_len: usize = 15;
+}
+
+pub struct Hash<HA: HashAlgorithm> {
     sha: Sha<'static, Blocking>,
-    algo: &'static Algorithm,
+    phantom: PhantomData<HA>
 }
 
-impl Hash {
+impl<HA: HashAlgorithm> Hash<HA> {
     pub fn new(
         sha_peripheral: impl Peripheral<P = SHA> + 'static,
-        algo: &'static Algorithm
-        
     ) -> Self {
         Self { 
-            sha: Sha::new(sha_peripheral, algo.hash_algorithm, None),
-            algo
+            sha: Sha::new(sha_peripheral, HA::hash_algorithm, None),
+            phantom: PhantomData
         }
     }
 
@@ -48,8 +57,8 @@ impl Hash {
         data: &[u8],
         out: &'a mut [u8]
     ) -> Result<&'a [u8], ()> {
-        if out.len() < self.algo.output_len {
-            error!("Output buffer is smaller then the output length of hash algorithm {:?}", self.algo.hash_algorithm);
+        if out.len() < HA::output_len {
+            error!("Output buffer is smaller then the output length of hash algorithm {:?}", HA::hash_algorithm);
             return Err(());
         }
 
@@ -62,14 +71,14 @@ impl Hash {
         block!(self.sha.finish(out))
             .expect(".finish() should never fail.");
 
-        Ok(&out[..self.algo.output_len])
+        Ok(&out[..HA::output_len])
     }
 
     pub fn algorithm(&self) -> ShaMode {
-        self.algo.hash_algorithm
+        HA::hash_algorithm
     }
 
     pub fn output_len(&self) -> usize {
-        self.algo.output_len
+        HA::output_len
     }
 }

@@ -1,4 +1,4 @@
-use esp_32c3_crypto::hash::sha::{Hash, ESP_32C3_SHA1, ESP_32C3_SHA224, ESP_32C3_SHA256};
+use esp_32c3_crypto::hash::sha::{Esp32C3Sha1, Esp32C3Sha224, Esp32C3Sha256, Hash, HashAlgorithm};
 use esp_hal::{peripherals::Peripherals, sha::ShaMode};
 use log::{error, info};
 
@@ -32,7 +32,7 @@ pub fn test_hash() {
     log::warn!("{error_count} of 3 hash algortihm tests failed.");
 }
 
-fn test_hash_function(data: &[u8], out: &mut [u8], expected: &[u8], hash: &mut Hash) -> Result<(), &'static str> {
+fn test_hash_function<T: HashAlgorithm>(data: &[u8], out: &mut [u8], expected: &[u8], hash: &mut Hash<T>) -> Result<(), &'static str> {
     if let Ok(result) = hash.hash(data, out) {
         if result != expected {
             error!("The result ({:?}) does not equal the expected_result ({:?})", result, expected);
@@ -49,7 +49,7 @@ fn test_hash_function(data: &[u8], out: &mut [u8], expected: &[u8], hash: &mut H
 fn test_sha1() -> Result<(), &'static str>{
     let sha = unsafe { Peripherals::steal().SHA };
 
-    let mut hash = Hash::new(sha, &ESP_32C3_SHA1);
+    let mut hash = Hash::<Esp32C3Sha1>::new(sha);
 
     if hash.output_len() != 20 {
         return Err("Wrong output length")
@@ -90,7 +90,7 @@ fn test_sha1() -> Result<(), &'static str>{
 fn test_sha224() -> Result<(), &'static str>{
     let sha = unsafe { Peripherals::steal().SHA };
 
-    let mut hash = Hash::new(sha, &ESP_32C3_SHA224);
+    let mut hash = Hash::<Esp32C3Sha224>::new(sha);
 
     if hash.output_len() != 28 {
         return Err("Wrong output length")
@@ -134,7 +134,7 @@ fn test_sha224() -> Result<(), &'static str>{
 fn test_sha256() -> Result<(), &'static str>{
     let sha = unsafe { Peripherals::steal().SHA };
 
-    let mut hash = Hash::new(sha, &ESP_32C3_SHA256);
+    let mut hash = Hash::<Esp32C3Sha256>::new(sha);
 
     if hash.output_len() != 32 {
         return Err("Wrong output length")

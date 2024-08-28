@@ -1,5 +1,5 @@
 use crypto_bigint::Uint;
-use esp_hal::{rsa::{Rsa, RsaMode, RsaModularExponentiation}, Blocking};
+use esp_hal::{rsa::{operand_sizes::{Op1024, Op2048}, Rsa, RsaMode, RsaModularExponentiation}, Blocking};
 
 
 pub const fn compute_mprime<const N: usize>(modulus: &Uint<N>) -> u32 {
@@ -18,19 +18,39 @@ where [(); LIMBS * 2 + 1]: Sized
 }
 
 
-fn run_expo<T, const N: usize> (
+pub fn run_expo_1024(
     rsa: &mut Rsa<Blocking>,
-    exponent: &[u32; N],
-    modulus: &[u32; N],
+    exponent: &[u32; 32],
+    modulus: &[u32; 32],
     m_prime: u32,
-    base: &[u32; N],
-    r: &[u32; N],
-    output: &mut [u32; N]
+    base: &[u32; 32],
+    r: &[u32; 32],
+    output: &mut [u32; 32]
 )
-where
-    T: RsaMode<InputType = [u32; N]>,
 {
-    let mut rsa_exp: RsaModularExponentiation<T, Blocking> = RsaModularExponentiation::new(
+    let mut rsa_exp: RsaModularExponentiation<Op1024, Blocking> = RsaModularExponentiation::new(
+        rsa,
+        exponent,
+        modulus,
+        m_prime,
+    );
+
+    rsa_exp.start_exponentiation(base, r);
+    rsa_exp.read_results(output);
+}
+
+
+pub fn run_expo_2048(
+    rsa: &mut Rsa<Blocking>,
+    exponent: &[u32; 64],
+    modulus: &[u32; 64],
+    m_prime: u32,
+    base: &[u32; 64],
+    r: &[u32; 64],
+    output: &mut [u32; 64]
+)
+{
+    let mut rsa_exp: RsaModularExponentiation<Op2048, Blocking> = RsaModularExponentiation::new(
         rsa,
         exponent,
         modulus,

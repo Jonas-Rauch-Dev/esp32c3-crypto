@@ -1,4 +1,4 @@
-use esp_32c3_crypto::rsa::{RsaKeySize1024, RsaKeySize2048, RsaKeySize4096, RsaPrivateKey, RsaPublicKey};
+use esp_32c3_crypto::{hash::sha::Esp32C3Sha256, rsa::{RsaKeySize1024, RsaKeySize2048, RsaKeySize4096, RsaPrivateKey, RsaPublicKey}};
 
 
 const public_key_1024: &[u8] = include_bytes!("../keys/public_key_1024.der");
@@ -22,8 +22,8 @@ pub fn test_rsa_key_parsing() {
     }
     log::info!("1024 Public Key parsing successfull");
 
-    let rsa_public_key  = RsaPrivateKey::<RsaKeySize1024>::new_from_der(private_key_1024);
-    if let Err(e) = rsa_public_key {
+    let rsa_private_key= RsaPrivateKey::<RsaKeySize1024>::new_from_der(private_key_1024);
+    if let Err(e) = rsa_private_key {
             log::error!("Failed to Parse 1024 Byte Private Key with error: {:?}", e);
             error_count += 1;
     }
@@ -37,8 +37,8 @@ pub fn test_rsa_key_parsing() {
     }
     log::info!("2048 Public Key parsing successfull");
 
-    let rsa_public_key  = RsaPrivateKey::<RsaKeySize2048>::new_from_der(private_key_2048);
-    if let Err(e) = rsa_public_key {
+    let rsa_private_key  = RsaPrivateKey::<RsaKeySize2048>::new_from_der(private_key_2048);
+    if let Err(e) = rsa_private_key {
             log::error!("Failed to parse 2048 Byte Private Key with error: {:?}", e);
             error_count += 1;
     }
@@ -52,8 +52,8 @@ pub fn test_rsa_key_parsing() {
     }
     log::info!("4096 Public Key parsing successfull");
 
-    let rsa_public_key  = RsaPrivateKey::<RsaKeySize4096>::new_from_der(private_key_4096);
-    if let Err(e) = rsa_public_key {
+    let rsa_private_key   = RsaPrivateKey::<RsaKeySize4096>::new_from_der(private_key_4096);
+    if let Err(e) = rsa_private_key  {
             log::error!("Failed to parse 4096 Byte Private Key with error: {:?}", e);
             error_count += 1;
     }

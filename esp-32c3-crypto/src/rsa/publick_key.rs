@@ -1,9 +1,10 @@
 use core::marker::PhantomData;
 
-use crate::error::{Error, Result};
+use crate::{error::{Error, Result}, traits::{PaddingScheme, SignatureScheme}};
 
 
 use crypto_bigint::Uint;
+use esp_hal::{rng::Rng, rsa::Rsa, Blocking};
 use spki::SubjectPublicKeyInfoRef;
 use pkcs1::RsaPublicKey as RsaPubKey;
 
@@ -59,5 +60,25 @@ impl<T: RsaKey> RsaPublicKey<T> {
         Ok (Self {
             d: d.into(), n: n.into(), m_prime, r: r.into(), phantom: PhantomData
         })
+    }
+}
+
+
+impl<T: RsaKey> RsaPublicKey<T> {
+    pub fn encrypt<
+        'a, P: PaddingScheme<T>
+    >(
+        &self, rng: Rng, padding: P, plaintext: &[u8], ciphertext_buffer: &'a mut [u8]
+    ) 
+    -> Result<&'a [u8]>  {
+        padding.encrypt(rng, &self, plaintext, ciphertext_buffer)
+    }
+
+    pub fn verify<
+        S: SignatureScheme<T>
+    >(
+        &self, rsa: &mut Rsa<Blocking>, padding: S, hashed: &[u8], sig: &[u8]
+    ) -> Result<()> {
+        padding.verify(self, rsa, hashed, sig)
     }
 }

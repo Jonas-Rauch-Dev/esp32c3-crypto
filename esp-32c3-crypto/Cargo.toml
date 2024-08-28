@@ -16,6 +16,8 @@ der = { version = "0.7.9" }
 pkcs8 = { version = "0.10.2" }
 pkcs1 = { version = "0.7.5" }
 spki = { version = "0.7.3" }
+heapless = "0.8.0"
+
 
 [profile.dev]
 # Rust debug is too slow.

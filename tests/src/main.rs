@@ -11,6 +11,7 @@ use esp_32c3_crypto::rsa::{RsaKeySize1024, RsaKeySize2048, RsaKeySize4096, RsaPr
 
 mod test_hash;
 mod test_key_parsing;
+mod test_signature;
 
 
 #[entry]
@@ -26,6 +27,8 @@ fn main() -> ! {
     test_hash::test_hash();
 
     test_key_parsing::test_rsa_key_parsing();
+
+    test_signature::test_rsa_signature_pkcs1v15();
 
     loop {
         log::info!("Tests done!");

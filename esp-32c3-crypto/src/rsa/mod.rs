@@ -1,4 +1,5 @@
 mod publick_key;
+use esp_hal::rsa::RsaMode;
 pub use publick_key::RsaPublicKey;
 
 
@@ -11,6 +12,7 @@ pub trait RsaKey {
     const BLOCKSIZE: usize;
     type OperandType;
     const OperandWords: usize;
+    const KEYSIZE: usize;
 }
 
 
@@ -25,6 +27,7 @@ macro_rules! implement_rsakey {
                 const BLOCKSIZE: usize = $x / 8;
                 type OperandType = [u32; $x / 32];
                 const OperandWords: usize = $x / 32;
+                const KEYSIZE: usize = $x;
             }
         }
     };
