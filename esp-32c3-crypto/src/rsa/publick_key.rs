@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use crate::{error::{Error, Result}, traits::{PaddingScheme, SignatureScheme}};
+use crate::{error::{Error, Result}, traits::{PaddingScheme, PublicKeyParts, SignatureScheme}};
 
 
 use crypto_bigint::Uint;
@@ -80,5 +80,23 @@ impl<T: RsaKey> RsaPublicKey<T> {
         &self, rsa: &mut Rsa<Blocking>, padding: S, hashed: &[u8], sig: &[u8]
     ) -> Result<()> {
         padding.verify(self, rsa, hashed, sig)
+    }
+}
+
+impl<T: RsaKey> PublicKeyParts<T> for RsaPublicKey<T> {
+    fn e(&self) -> &<T as RsaKey>::OperandType {
+        &self.d
+    }
+
+    fn mprime(&self) -> u32 {
+        self.m_prime
+    }
+
+    fn n(&self) -> &<T as RsaKey>::OperandType {
+        &self.n
+    }
+
+    fn r(&self) -> &<T as RsaKey>::OperandType {
+        &self.r
     }
 }

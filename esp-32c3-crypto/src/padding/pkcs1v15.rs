@@ -1,3 +1,4 @@
+use crypto_bigint::subtle::ConstantTimeEq;
 use esp_hal::{sha::ShaMode, Blocking};
 
 use crate::{
@@ -68,11 +69,44 @@ where
         &self,
         pub_key: &crate::rsa::RsaPublicKey<T>,
         rsa: &mut esp_hal::rsa::Rsa<Blocking>,
-        hahsed: &[u8],
+        hashed: &[u8],
         sig: &[u8]
     ) -> Result<()> 
     {
-        todo!("Implement verification of signature")
+        if sig.len() != T::BLOCKSIZE {
+            return Err(Error::Verification);
+        }
+
+        let mut out_buffer = [0u8; T::BLOCKSIZE];
+        let mut sig_buffer = [0u8; T::BLOCKSIZE];
+        for (i, &b) in sig.iter().rev().enumerate() {
+            sig_buffer[i] = b;
+        }
+        let encrypted = utils::rsa_encrypt(rsa, pub_key, &sig_buffer, &mut out_buffer)?;
+
+        let hashlen = hashed.len();
+        let t_len = self.prefix.len() + hashlen;
+        let k = T::BLOCKSIZE;
+
+        if k < t_len + 11 {
+            return Err(Error::Verification);
+        }
+
+        let mut ok = encrypted[0].ct_eq(&0u8);
+        ok &= encrypted[1].ct_eq(&1u8);
+        ok &= encrypted[k - hashlen..k].ct_eq(hashed);
+        ok &= encrypted[k - t_len..k - hashlen].ct_eq(self.prefix);
+        ok &= encrypted[k - t_len - 1].ct_eq(&0u8);
+
+        for el in encrypted.iter().skip(2).take(k - t_len - 3) {
+            ok &= el.ct_eq(&0xff)
+        }
+
+        if ok.unwrap_u8() != 1 {
+            return Err(Error::Verification);
+        }
+
+        Ok(())
     }
 }
 
@@ -92,56 +126,7 @@ where
     let mut em_buffer = [0xffu8; T::BLOCKSIZE];
     let em = pkcs1v15_sign_pad(prefix, digest_in, T::BLOCKSIZE, &mut em_buffer)?;
 
-    rsa_decrypt(rsa, priv_key, &em, signature_out)
-}
-
-
-fn rsa_decrypt<'a, T: RsaKey>(
-    rsa: &mut esp_hal::rsa::Rsa<Blocking>,
-    priv_key: &RsaPrivateKey<T>,
-    base: &[u8],
-    out: &'a mut [u8]
-) -> Result<&'a [u8]>{
-    match T::OperandWords {
-        32 => {
-            let base = unsafe { &*(base.as_ptr() as *const[u32; 32]) };
-            let mut output_buffer = [0u32; 32];
-            utils::run_expo_1024(
-                rsa,
-                unsafe { core::mem::transmute(priv_key.d()) },
-                unsafe { core::mem::transmute(priv_key.n()) },
-                priv_key.mprime(),
-                base,
-                unsafe { core::mem::transmute(priv_key.r()) },
-                &mut output_buffer
-            );
-            for (i, &b) in unsafe { core::mem::transmute::<[u32; 32] ,[u8; 128]>(output_buffer) }.iter().rev().enumerate() {
-                out[i] = b;
-            }
-
-        },
-        64 => {
-            let base = unsafe { &*(base.as_ptr() as *const[u32; 64]) };
-            let mut output_buffer = [0u32; 64];
-            utils::run_expo_2048(
-                rsa,
-                unsafe { core::mem::transmute(priv_key.d()) },
-                unsafe { core::mem::transmute(priv_key.n()) },
-                priv_key.mprime(),
-                base,
-                unsafe { core::mem::transmute(priv_key.r()) },
-                &mut output_buffer
-            );
-            for (i, &b) in unsafe { core::mem::transmute::<[u32; 64] ,[u8; 256]>(output_buffer) }.iter().rev().enumerate() {
-                out[i] = b;
-            }
-        },
-        _ => {
-            return Err(Error::Internal);
-        }
-    }
-
-    Ok(&out[..T::BLOCKSIZE])
+    utils::rsa_decrypt(rsa, priv_key, &em, signature_out)
 }
 
 

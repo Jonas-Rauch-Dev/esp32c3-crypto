@@ -12,4 +12,5 @@ pub enum Error {
     MessageTooLong,
     BufferTooSmall,
     Internal,
+    Verification,
 }

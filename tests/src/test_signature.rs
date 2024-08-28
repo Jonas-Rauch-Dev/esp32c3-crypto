@@ -1,4 +1,13 @@
-use esp_32c3_crypto::{hash::sha::{Esp32C3Sha1, Esp32C3Sha224, Esp32C3Sha256, Hash, HashAlgorithm}, padding::pkcs1v15::Pkcs1v15Sign, rsa::{RsaKey, RsaKeySize1024, RsaKeySize2048, RsaKeySize4096, RsaPrivateKey, RsaPublicKey}, traits::SignatureScheme};
+use esp_32c3_crypto::{
+    hash::sha::{
+        Esp32C3Sha1, Esp32C3Sha224, Esp32C3Sha256, Hash, HashAlgorithm
+    },
+    padding::pkcs1v15::Pkcs1v15Sign,
+    rsa::{
+        RsaKey, RsaKeySize1024, RsaKeySize2048, RsaPrivateKey, RsaPublicKey
+    },
+    traits::SignatureScheme
+};
 use esp_hal::{peripherals::Peripherals, rng::Rng, rsa::Rsa};
 
 const test_file: &[u8] = include_bytes!("../test_file.txt");
@@ -46,6 +55,7 @@ pub fn test_rsa_signature_pkcs1v15_1024_sha256() -> bool {
             log::error!("Failed to parse 1024 Byte Public Key with error: {:?}", e);
             return false;
     }
+    let rsa_public_key = rsa_public_key.unwrap();
 
     // Parse Priv key
     let rsa_private_key= RsaPrivateKey::<RsaKeySize1024>::new_from_der(private_key_1024);
@@ -85,10 +95,20 @@ pub fn test_rsa_signature_pkcs1v15_1024_sha256() -> bool {
         }
     }
 
-    // TODO: Verify Openssl Signature
-    // TODO: Verify Esp32c3 Crypto Signature
+    // Verify Openssl Signature
+    let verification_result = scheme.verify(&rsa_public_key, &mut rsa, digest, test_file_sign_1024_sha256);
+    if let Err(e) = verification_result {
+        log::error!("Failed to verify Openssl signature!");
+        return false;
+    }
 
-    // TODO: Test other Hashes
+    // Verify Esp32c3 Crypto Signature
+    let verification_result = scheme.verify(&rsa_public_key, &mut rsa, digest, signature);
+    if let Err(e) = verification_result {
+        log::error!("Failed to verify Esp32c3Crypto signature!");
+        return false;
+    }
+
 
     true
 }
@@ -112,6 +132,7 @@ pub fn test_rsa_signature_pkcs1v15_1024_sha1() -> bool {
             log::error!("Failed to parse 1024 Byte Public Key with error: {:?}", e);
             return false;
     }
+    let rsa_public_key = rsa_public_key.unwrap();
 
     // Parse Priv key
     let rsa_private_key= RsaPrivateKey::<RsaKeySize1024>::new_from_der(private_key_1024);
@@ -151,10 +172,19 @@ pub fn test_rsa_signature_pkcs1v15_1024_sha1() -> bool {
         }
     }
 
-    // TODO: Verify Openssl Signature
-    // TODO: Verify Esp32c3 Crypto Signature
+    // Verify Openssl Signature
+    let verification_result = scheme.verify(&rsa_public_key, &mut rsa, digest, test_file_sign_1024_sha1);
+    if let Err(e) = verification_result {
+        log::error!("Failed to verify Openssl signature!");
+        return false;
+    }
 
-    // TODO: Test other Hashes
+    // Verify Esp32c3 Crypto Signature
+    let verification_result = scheme.verify(&rsa_public_key, &mut rsa, digest, signature);
+    if let Err(e) = verification_result {
+        log::error!("Failed to verify Esp32c3Crypto signature!");
+        return false;
+    }
 
     true
 }
@@ -178,6 +208,7 @@ pub fn test_rsa_signature_pkcs1v15_1024_sha224() -> bool {
             log::error!("Failed to parse 1024 Byte Public Key with error: {:?}", e);
             return false;
     }
+    let rsa_public_key = rsa_public_key.unwrap();
 
     // Parse Priv key
     let rsa_private_key= RsaPrivateKey::<RsaKeySize1024>::new_from_der(private_key_1024);
@@ -217,10 +248,19 @@ pub fn test_rsa_signature_pkcs1v15_1024_sha224() -> bool {
         }
     }
 
-    // TODO: Verify Openssl Signature
-    // TODO: Verify Esp32c3 Crypto Signature
+    // Verify Openssl Signature
+    let verification_result = scheme.verify(&rsa_public_key, &mut rsa, digest, test_file_sign_1024_sha224);
+    if let Err(e) = verification_result {
+        log::error!("Failed to verify Openssl signature!");
+        return false;
+    }
 
-    // TODO: Test other Hashes
+    // Verify Esp32c3 Crypto Signature
+    let verification_result = scheme.verify(&rsa_public_key, &mut rsa, digest, signature);
+    if let Err(e) = verification_result {
+        log::error!("Failed to verify Esp32c3Crypto signature!");
+        return false;
+    }
 
     true
 }

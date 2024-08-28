@@ -1,5 +1,18 @@
 use crypto_bigint::Uint;
-use esp_hal::{rsa::{operand_sizes::{Op1024, Op2048}, Rsa, RsaMode, RsaModularExponentiation}, Blocking};
+use esp_hal::{
+    rsa::{
+        operand_sizes::{Op1024, Op2048},
+        Rsa,
+        RsaModularExponentiation
+    },
+    Blocking
+};
+
+use crate::{
+    error::{Error, Result},
+    rsa::{RsaKey, RsaPrivateKey, RsaPublicKey},
+    traits::{PrivateKeyParts, PublicKeyParts}
+};
 
 
 pub const fn compute_mprime<const N: usize>(modulus: &Uint<N>) -> u32 {
@@ -18,7 +31,7 @@ where [(); LIMBS * 2 + 1]: Sized
 }
 
 
-pub fn run_expo_1024(
+fn run_expo_1024(
     rsa: &mut Rsa<Blocking>,
     exponent: &[u32; 32],
     modulus: &[u32; 32],
@@ -40,7 +53,7 @@ pub fn run_expo_1024(
 }
 
 
-pub fn run_expo_2048(
+fn run_expo_2048(
     rsa: &mut Rsa<Blocking>,
     exponent: &[u32; 64],
     modulus: &[u32; 64],
@@ -60,3 +73,103 @@ pub fn run_expo_2048(
     rsa_exp.start_exponentiation(base, r);
     rsa_exp.read_results(output);
 }
+
+
+pub fn rsa_decrypt<'a, T: RsaKey>(
+    rsa: &mut esp_hal::rsa::Rsa<Blocking>,
+    priv_key: &RsaPrivateKey<T>,
+    base: &[u8],
+    out: &'a mut [u8]
+) -> Result<&'a [u8]>{
+    match T::OperandWords {
+        32 => {
+            let base = unsafe { &*(base.as_ptr() as *const[u32; 32]) };
+            let mut output_buffer = [0u32; 32];
+            run_expo_1024(
+                rsa,
+                unsafe { core::mem::transmute(priv_key.d()) },
+                unsafe { core::mem::transmute(priv_key.n()) },
+                priv_key.mprime(),
+                base,
+                unsafe { core::mem::transmute(priv_key.r()) },
+                &mut output_buffer
+            );
+            for (i, &b) in unsafe { core::mem::transmute::<[u32; 32] ,[u8; 128]>(output_buffer) }.iter().rev().enumerate() {
+                out[i] = b;
+            }
+
+        },
+        64 => {
+            let base = unsafe { &*(base.as_ptr() as *const[u32; 64]) };
+            let mut output_buffer = [0u32; 64];
+            run_expo_2048(
+                rsa,
+                unsafe { core::mem::transmute(priv_key.d()) },
+                unsafe { core::mem::transmute(priv_key.n()) },
+                priv_key.mprime(),
+                base,
+                unsafe { core::mem::transmute(priv_key.r()) },
+                &mut output_buffer
+            );
+            for (i, &b) in unsafe { core::mem::transmute::<[u32; 64] ,[u8; 256]>(output_buffer) }.iter().rev().enumerate() {
+                out[i] = b;
+            }
+        },
+        _ => {
+            return Err(Error::Internal);
+        }
+    }
+
+    Ok(&out[..T::BLOCKSIZE])
+}
+
+
+pub fn rsa_encrypt<'a, T: RsaKey>(
+    rsa: &mut Rsa<Blocking>,
+    pub_key: &RsaPublicKey<T>,
+    base: &[u8],
+    out: &'a mut [u8]
+) -> Result<&'a [u8]> {
+    match T::OperandWords {
+        32 => {
+            let base = unsafe { &*(base.as_ptr() as *const[u32; 32]) };
+            let mut output_buffer = [0u32; 32];
+            run_expo_1024(
+                rsa,
+                unsafe { core::mem::transmute(pub_key.e()) },
+                unsafe { core::mem::transmute(pub_key.n()) },
+                pub_key.mprime(),
+                base,
+                unsafe { core::mem::transmute(pub_key.r()) },
+                &mut output_buffer
+            );
+
+            for (i, &b) in unsafe { core::mem::transmute::<[u32; 32] ,[u8; 128]>(output_buffer) }.iter().rev().enumerate() {
+                out[i] = b;
+            }
+        },
+        64 => {
+            let base = unsafe { &*(base.as_ptr() as *const[u32; 64]) };
+            let mut output_buffer = [0u32; 64];
+            run_expo_2048(
+                rsa,
+                unsafe { core::mem::transmute(pub_key.e()) },
+                unsafe { core::mem::transmute(pub_key.n()) },
+                pub_key.mprime(),
+                base,
+                unsafe { core::mem::transmute(pub_key.r()) },
+                &mut output_buffer
+            );
+
+            for (i, &b) in unsafe { core::mem::transmute::<[u32; 64] ,[u8; 256]>(output_buffer) }.iter().rev().enumerate() {
+                out[i] = b;
+            }
+        },
+        _ => {
+            return Err(Error::Internal);
+        }
+    }
+
+    Ok(&out[..T::BLOCKSIZE])
+}
+
