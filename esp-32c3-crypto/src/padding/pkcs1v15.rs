@@ -3,7 +3,7 @@ use esp_hal::{sha::ShaMode, Blocking};
 use crate::{
     error::{Error, Result},
     hash::sha::HashAlgorithm,
-    rsa::{RsaKey, RsaPrivateKey},
+    rsa::{RsaKey, RsaKeySize1024, RsaKeySize2048, RsaPrivateKey},
     traits::{PrivateKeyParts, PublicKeyParts, SignatureScheme}, utils
 };
 
@@ -76,6 +76,7 @@ where
     }
 }
 
+
 fn sign<'a, T: RsaKey>(
     rng: esp_hal::rng::Rng,
     rsa: &mut esp_hal::rsa::Rsa<Blocking>,
@@ -91,46 +92,58 @@ where
     let mut em_buffer = [0xffu8; T::BLOCKSIZE];
     let em = pkcs1v15_sign_pad(prefix, digest_in, T::BLOCKSIZE, &mut em_buffer)?;
 
+    rsa_decrypt(rsa, priv_key, &em, signature_out)
+}
+
+
+fn rsa_decrypt<'a, T: RsaKey>(
+    rsa: &mut esp_hal::rsa::Rsa<Blocking>,
+    priv_key: &RsaPrivateKey<T>,
+    base: &[u8],
+    out: &'a mut [u8]
+) -> Result<&'a [u8]>{
     match T::OperandWords {
         32 => {
-            let em = unsafe { &*(em.as_ptr() as *const[u32; 32]) };
+            let base = unsafe { &*(base.as_ptr() as *const[u32; 32]) };
             let mut output_buffer = [0u32; 32];
             utils::run_expo_1024(
                 rsa,
                 unsafe { core::mem::transmute(priv_key.d()) },
                 unsafe { core::mem::transmute(priv_key.n()) },
                 priv_key.mprime(),
-                em,
+                base,
                 unsafe { core::mem::transmute(priv_key.r()) },
                 &mut output_buffer
             );
             for (i, &b) in unsafe { core::mem::transmute::<[u32; 32] ,[u8; 128]>(output_buffer) }.iter().rev().enumerate() {
-                signature_out[i] = b;
+                out[i] = b;
             }
+
         },
         64 => {
-            let em = unsafe { &*(em.as_ptr() as *const[u32; 64]) };
+            let base = unsafe { &*(base.as_ptr() as *const[u32; 64]) };
             let mut output_buffer = [0u32; 64];
             utils::run_expo_2048(
                 rsa,
                 unsafe { core::mem::transmute(priv_key.d()) },
                 unsafe { core::mem::transmute(priv_key.n()) },
                 priv_key.mprime(),
-                em,
+                base,
                 unsafe { core::mem::transmute(priv_key.r()) },
                 &mut output_buffer
             );
             for (i, &b) in unsafe { core::mem::transmute::<[u32; 64] ,[u8; 256]>(output_buffer) }.iter().rev().enumerate() {
-                signature_out[i] = b;
+                out[i] = b;
             }
         },
         _ => {
-            return Err(Error::Internal)
+            return Err(Error::Internal);
         }
     }
 
-    Ok(&signature_out[..T::BLOCKSIZE])
+    Ok(&out[..T::BLOCKSIZE])
 }
+
 
 fn pkcs1v15_sign_pad<'a>(prefix: &[u8], digest_in: &[u8], k: usize, em: &'a mut [u8]) -> Result<&'a [u8]>{
     let hash_len = digest_in.len();
