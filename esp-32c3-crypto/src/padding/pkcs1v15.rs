@@ -3,7 +3,7 @@ use esp_hal::{sha::ShaMode, Blocking};
 use crate::{
     error::{Error, Result},
     hash::sha::HashAlgorithm,
-    rsa::{RsaKey, RsaKeySize1024, RsaKeySize2048, RsaPrivateKey},
+    rsa::{RsaKey, RsaPrivateKey},
     traits::{PrivateKeyParts, PublicKeyParts, SignatureScheme}, utils
 };
 
