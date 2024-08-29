@@ -13,4 +13,5 @@ pub enum Error {
     BufferTooSmall,
     Internal,
     Verification,
+    InvalidBlockSize,
 }

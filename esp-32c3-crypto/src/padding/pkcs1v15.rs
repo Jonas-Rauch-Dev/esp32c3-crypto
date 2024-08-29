@@ -4,8 +4,8 @@ use esp_hal::{sha::ShaMode, Blocking};
 use crate::{
     error::{Error, Result},
     hash::sha::HashAlgorithm,
-    rsa::{RsaKey, RsaPrivateKey},
-    traits::{PrivateKeyParts, PublicKeyParts, SignatureScheme}, utils
+    rsa::{Encrypt, Decrypt, RsaKey, RsaPrivateKey},
+    traits::SignatureScheme, utils
 };
 
 
@@ -57,6 +57,8 @@ where
         signature_out: &'a mut [u8]
     ) 
     -> crate::error::Result<&'a [u8]> 
+    where 
+        T: Decrypt<T>
     {
         if digest_in.len() != self.hash_len {
             return Err(Error::InputNotHashed);
@@ -71,7 +73,10 @@ where
         rsa: &mut esp_hal::rsa::Rsa<Blocking>,
         hashed: &[u8],
         sig: &[u8]
-    ) -> Result<()> 
+    )
+    -> Result<()> 
+    where 
+        T: Encrypt<T>
     {
         if sig.len() != T::BLOCKSIZE {
             return Err(Error::Verification);
@@ -82,7 +87,7 @@ where
         for (i, &b) in sig.iter().rev().enumerate() {
             sig_buffer[i] = b;
         }
-        let encrypted = utils::rsa_encrypt(rsa, pub_key, &sig_buffer, &mut out_buffer)?;
+        let encrypted = T::encrypt(rsa, pub_key, &sig_buffer, &mut out_buffer)?;
 
         let hashlen = hashed.len();
         let t_len = self.prefix.len() + hashlen;
@@ -121,12 +126,13 @@ fn sign<'a, T: RsaKey>(
 ) -> Result<&'a [u8]>
 where 
     [(); T::BLOCKSIZE]: Sized,
+    T: Decrypt<T>
 {
     // Write the unencrypted signature with padding to a temporary buffer
     let mut em_buffer = [0xffu8; T::BLOCKSIZE];
     let em = pkcs1v15_sign_pad(prefix, digest_in, T::BLOCKSIZE, &mut em_buffer)?;
 
-    utils::rsa_decrypt(rsa, priv_key, &em, signature_out)
+    T::decrypt(rsa, priv_key, &em, signature_out)
 }
 
 

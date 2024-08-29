@@ -1,7 +1,7 @@
 use esp_hal::rng::Rng;
 use esp_hal::Blocking;
 
-use crate::rsa::{RsaKey, RsaPrivateKey, RsaPublicKey};
+use crate::rsa::{Encrypt, Decrypt, RsaKey, RsaPrivateKey, RsaPublicKey};
 use crate::error::Result;
 
 pub trait PaddingScheme<T: RsaKey> {
@@ -10,8 +10,17 @@ pub trait PaddingScheme<T: RsaKey> {
 }
 
 pub trait SignatureScheme<T: RsaKey> {
-    fn sign<'a>(&self, priv_key: &RsaPrivateKey<T>, rng: Rng, rsa: &mut esp_hal::rsa::Rsa<Blocking>, digest_in: &[u8], signature_out: &'a mut [u8]) -> Result<&'a [u8]>;
-    fn verify(&self, pub_key: &RsaPublicKey<T>, rsa: &mut esp_hal::rsa::Rsa<Blocking>, hahsed: &[u8], sig: &[u8]) -> Result<()>;
+    fn sign<'a>(
+        &self, priv_key: &RsaPrivateKey<T>, rng: Rng, rsa: &mut esp_hal::rsa::Rsa<Blocking>, digest_in: &[u8], signature_out: &'a mut [u8]
+    ) -> Result<&'a [u8]>
+    where 
+        T: Decrypt<T>;
+
+    fn verify(
+        &self, pub_key: &RsaPublicKey<T>, rsa: &mut esp_hal::rsa::Rsa<Blocking>, hahsed: &[u8], sig: &[u8]
+    ) -> Result<()>
+    where
+        T: Encrypt<T>;
 }
 
 pub trait PrivateKeyParts<T: RsaKey> {

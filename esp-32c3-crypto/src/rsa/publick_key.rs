@@ -8,7 +8,7 @@ use esp_hal::{rng::Rng, rsa::Rsa, Blocking};
 use spki::SubjectPublicKeyInfoRef;
 use pkcs1::RsaPublicKey as RsaPubKey;
 
-use super::RsaKey;
+use super::{Encrypt, RsaKey};
 
 
 #[derive(Debug)]
@@ -74,11 +74,13 @@ impl<T: RsaKey> RsaPublicKey<T> {
         padding.encrypt(rng, &self, plaintext, ciphertext_buffer)
     }
 
-    pub fn verify<
-        S: SignatureScheme<T>
-    >(
+    pub fn verify<S: SignatureScheme<T>>(
         &self, rsa: &mut Rsa<Blocking>, padding: S, hashed: &[u8], sig: &[u8]
-    ) -> Result<()> {
+    ) -> Result<()> 
+    where
+        S: SignatureScheme<T>,
+        T: Encrypt<T>
+    {
         padding.verify(self, rsa, hashed, sig)
     }
 }

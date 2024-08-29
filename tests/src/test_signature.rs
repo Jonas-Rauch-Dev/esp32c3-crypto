@@ -4,7 +4,7 @@ use esp_32c3_crypto::{
     },
     padding::pkcs1v15::Pkcs1v15Sign,
     rsa::{
-        RsaKey, RsaKeySize1024, RsaKeySize2048, RsaPrivateKey, RsaPublicKey
+        RsaKey, RsaKeySize1024, RsaPrivateKey, RsaPublicKey
     },
     traits::SignatureScheme
 };

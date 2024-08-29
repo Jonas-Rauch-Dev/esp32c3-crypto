@@ -1,11 +1,11 @@
 use core::marker::PhantomData;
 
-use crypto_bigint::{Encoding, Uint};
+use crypto_bigint::Uint;
 use esp_hal::{rng::Rng, rsa::Rsa, Blocking};
 use pkcs8::PrivateKeyInfo;
 use pkcs1::RsaPrivateKey as RsaPrivate;
 
-use super::RsaKey;
+use super::{Decrypt, RsaKey};
 use crate::{error::{Error, Result}, traits::{PaddingScheme, PrivateKeyParts, PublicKeyParts, SignatureScheme}};
 
 
@@ -91,7 +91,13 @@ impl<T: RsaKey> RsaPrivateKey <T> {
         padding.decrypt(self, ciphertext, plaintext_buffer)
     }
 
-    pub fn sign<'a, S: SignatureScheme<T>>(&self, rng: Rng, rsa: &mut Rsa<Blocking>, scheme: &S, digest_in: &[u8], signature_out: &'a mut [u8]) -> Result<&'a [u8]>{
+    pub fn sign<'a, S>(
+        &self, rng: Rng, rsa: &mut Rsa<Blocking>, scheme: &S, digest_in: &[u8], signature_out: &'a mut [u8]
+    ) -> Result<&'a [u8]>
+    where
+        S: SignatureScheme<T>,
+        T: Decrypt<T>
+    {
         scheme.sign(self, rng, rsa, digest_in, signature_out)
     }
 }
