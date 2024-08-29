@@ -3,16 +3,20 @@ use core::marker::PhantomData;
 use crate::{error::{Error, Result}, traits::{PaddingScheme, PublicKeyParts, SignatureScheme}};
 
 
-use crypto_bigint::Uint;
+use crypto_bigint::{Uint, Zero, U1024};
 use esp_hal::{rng::Rng, rsa::Rsa, Blocking};
 use spki::SubjectPublicKeyInfoRef;
 use pkcs1::RsaPublicKey as RsaPubKey;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::{Encrypt, RsaKey};
+use super::{Encrypt, RsaKey, RsaPrivateKey};
 
 
 #[derive(Debug)]
-pub struct RsaPublicKey<T: RsaKey> {
+pub struct RsaPublicKey<T: RsaKey> 
+where 
+    T: RsaKey<OperandType = [u32; T::OperandWords]>
+{
     d: T::OperandType,
     n: T::OperandType,
     m_prime: u32,
@@ -20,14 +24,16 @@ pub struct RsaPublicKey<T: RsaKey> {
     phantom: PhantomData<T>
 }
 
-impl<T: RsaKey> RsaPublicKey<T> {
+impl<T: RsaKey> RsaPublicKey<T> 
+where 
+    T: RsaKey<OperandType = [u32; T::OperandWords]>
+{
     pub fn new_from_der(bytes: &[u8])
     -> Result<Self>
     where 
         [(); T::OperandWords]: Sized,
         [(); {T::OperandWords} * 2 + 1]: Sized,
         [(); T::BLOCKSIZE]: Sized,
-        T: RsaKey<OperandType = [u32; T::OperandWords]>,
     {
         // Parse the public keys bytes to rust data structure
         let pub_key_info = SubjectPublicKeyInfoRef::try_from(bytes)
@@ -64,7 +70,10 @@ impl<T: RsaKey> RsaPublicKey<T> {
 }
 
 
-impl<T: RsaKey> RsaPublicKey<T> {
+impl<T: RsaKey> RsaPublicKey<T> 
+where 
+    T: RsaKey<OperandType = [u32; T::OperandWords]>
+{
     pub fn encrypt<
         'a, P: PaddingScheme<T>
     >(
@@ -85,7 +94,10 @@ impl<T: RsaKey> RsaPublicKey<T> {
     }
 }
 
-impl<T: RsaKey> PublicKeyParts<T> for RsaPublicKey<T> {
+impl<T: RsaKey> PublicKeyParts<T> for RsaPublicKey<T> 
+where 
+    T: RsaKey<OperandType = [u32; T::OperandWords]>
+{
     fn e(&self) -> &<T as RsaKey>::OperandType {
         &self.d
     }
@@ -102,3 +114,31 @@ impl<T: RsaKey> PublicKeyParts<T> for RsaPublicKey<T> {
         &self.r
     }
 }
+
+impl<T: RsaKey> Zeroize for RsaPublicKey<T> where T: RsaKey<OperandType = [u32; T::OperandWords]> {
+    fn zeroize(&mut self) {
+        for i in 0..T::OperandWords {
+            self.d[i] = 0;
+            self.n[i] = 0;
+            self.r[i] = 0;
+        }
+
+        self.m_prime.zeroize();
+        self.phantom.zeroize();
+    }
+}
+
+
+impl<T> Drop for RsaPublicKey<T> 
+where 
+    T: RsaKey<OperandType = [u32; T::OperandWords]> 
+{
+    fn drop(&mut self) {
+        self.zeroize()
+    }
+}
+
+impl<T> ZeroizeOnDrop for RsaPublicKey<T>
+where 
+    T: RsaKey<OperandType = [u32; T::OperandWords]>
+{}

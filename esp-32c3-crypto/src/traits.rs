@@ -4,12 +4,12 @@ use esp_hal::Blocking;
 use crate::rsa::{Encrypt, Decrypt, RsaKey, RsaPrivateKey, RsaPublicKey};
 use crate::error::Result;
 
-pub trait PaddingScheme<T: RsaKey> {
+pub trait PaddingScheme<T: RsaKey> where T: RsaKey<OperandType = [u32; T::OperandWords]> {
     fn decrypt<'a>(self, priv_key: &RsaPrivateKey<T>, ciphertext: &[u8], plaintext_buffer: &'a [u8]) -> Result<&'a [u8]>;
     fn encrypt<'a>(self, rng: Rng, pub_key: &RsaPublicKey<T>, plaintext: &[u8], ciphertext_buffer: &'a [u8]) -> Result<&'a [u8]>;
 }
 
-pub trait SignatureScheme<T: RsaKey> {
+pub trait SignatureScheme<T: RsaKey> where T: RsaKey<OperandType = [u32; T::OperandWords]>{
     fn sign<'a>(
         &self, priv_key: &RsaPrivateKey<T>, rng: Rng, rsa: &mut esp_hal::rsa::Rsa<Blocking>, digest_in: &[u8], signature_out: &'a mut [u8]
     ) -> Result<&'a [u8]>

@@ -109,7 +109,6 @@ pub fn test_rsa_signature_pkcs1v15_1024_sha256() -> bool {
         return false;
     }
 
-
     true
 }
 

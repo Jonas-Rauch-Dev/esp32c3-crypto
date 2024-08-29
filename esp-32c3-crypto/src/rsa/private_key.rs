@@ -4,6 +4,7 @@ use crypto_bigint::Uint;
 use esp_hal::{rng::Rng, rsa::Rsa, Blocking};
 use pkcs8::PrivateKeyInfo;
 use pkcs1::RsaPrivateKey as RsaPrivate;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::{Decrypt, RsaKey};
 use crate::{error::{Error, Result}, traits::{PaddingScheme, PrivateKeyParts, PublicKeyParts, SignatureScheme}};
@@ -11,7 +12,10 @@ use crate::{error::{Error, Result}, traits::{PaddingScheme, PrivateKeyParts, Pub
 
 
 #[derive(Debug)]
-pub struct RsaPrivateKey <T: RsaKey> {
+pub struct RsaPrivateKey <T> 
+where 
+    T: RsaKey<OperandType = [u32; T::OperandWords]> 
+{
     d: T::OperandType,
     n: T::OperandType,
     m_prime: u32,
@@ -20,14 +24,16 @@ pub struct RsaPrivateKey <T: RsaKey> {
     phantom: PhantomData<T>
 }
 
-impl<T: RsaKey> RsaPrivateKey <T> {
+impl<T> RsaPrivateKey <T> 
+where 
+    T: RsaKey<OperandType = [u32; T::OperandWords]>
+{
     pub fn new_from_der(private_key_der:&[u8])
     -> Result<Self>
     where 
         [(); T::OperandWords]: Sized,
         [(); T::OperandWords * 2 + 1]: Sized,
         [(); T::BLOCKSIZE]: Sized,
-        T: RsaKey<OperandType = [u32; T::OperandWords]>
     {
         // Parse private key bytes to rust data structure
         let priv_key_info = PrivateKeyInfo::try_from(private_key_der)
@@ -61,13 +67,19 @@ impl<T: RsaKey> RsaPrivateKey <T> {
     }
 }
 
-impl<T: RsaKey> PrivateKeyParts<T> for RsaPrivateKey<T> {
+impl<T> PrivateKeyParts<T> for RsaPrivateKey<T>
+where
+    T: RsaKey<OperandType = [u32; T::OperandWords]>
+{
     fn d(&self) -> &<T as RsaKey>::OperandType {
         &self.d
     }
 }
 
-impl<T: RsaKey> PublicKeyParts<T> for RsaPrivateKey<T> {
+impl<T> PublicKeyParts<T> for RsaPrivateKey<T> 
+where
+    T: RsaKey<OperandType = [u32; T::OperandWords]>
+{
     fn e(&self) -> &<T as RsaKey>::OperandType {
         &self.e
     }
@@ -86,7 +98,10 @@ impl<T: RsaKey> PublicKeyParts<T> for RsaPrivateKey<T> {
 }
 
 
-impl<T: RsaKey> RsaPrivateKey <T> {
+impl<T> RsaPrivateKey <T> 
+where
+    T: RsaKey<OperandType = [u32; T::OperandWords]>
+{
     pub fn decrypt<'a, P: PaddingScheme<T>>(&self, padding: P, ciphertext: &[u8], plaintext_buffer: &'a [u8]) -> Result<&'a [u8]> {
         padding.decrypt(self, ciphertext, plaintext_buffer)
     }
@@ -101,3 +116,34 @@ impl<T: RsaKey> RsaPrivateKey <T> {
         scheme.sign(self, rng, rsa, digest_in, signature_out)
     }
 }
+
+impl<T: RsaKey> Zeroize for RsaPrivateKey<T> 
+where 
+    T: RsaKey<OperandType = [u32; T::OperandWords]> 
+{
+    fn zeroize(&mut self) {
+        for i in 0..T::OperandWords {
+            self.d[i] = 0;
+            self.n[i] = 0;
+            self.r[i] = 0;
+            self.e[i] = 0;
+        }
+
+        self.m_prime.zeroize();
+        self.phantom.zeroize();
+    }
+}
+
+impl<T> Drop for RsaPrivateKey<T> 
+where 
+    T: RsaKey<OperandType = [u32; T::OperandWords]> 
+{
+    fn drop(&mut self) {
+        self.zeroize()
+    }
+}
+
+impl<T> ZeroizeOnDrop for RsaPrivateKey<T>
+where 
+    T: RsaKey<OperandType = [u32; T::OperandWords]>
+{}

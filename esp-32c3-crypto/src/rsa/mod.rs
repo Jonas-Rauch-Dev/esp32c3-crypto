@@ -19,7 +19,7 @@ pub trait RsaKey {
     const KEYSIZE: usize;
 }
 
-pub trait Encrypt<T: RsaKey>{
+pub trait Encrypt<T: RsaKey> where T: RsaKey<OperandType = [u32; T::OperandWords]> {
     fn encrypt<'a>(
         rsa: &mut Rsa<Blocking>,
         pub_key: &RsaPublicKey<T>,
@@ -28,7 +28,7 @@ pub trait Encrypt<T: RsaKey>{
     ) -> Result<&'a [u8]>;
 }
 
-pub trait Decrypt<T: RsaKey>{
+pub trait Decrypt<T: RsaKey> where T: RsaKey<OperandType = [u32; T::OperandWords]> {
     fn decrypt<'a>(
         rsa: &mut Rsa<Blocking>,
         priv_key: &RsaPrivateKey<T>,

@@ -45,7 +45,7 @@ fn pkcs1v15_get_prefix<HA: HashAlgorithm>() -> &'static [u8] {
 
 impl<T> SignatureScheme<T> for Pkcs1v15Sign 
 where 
-    T: RsaKey,
+    T: RsaKey<OperandType = [u32; T::OperandWords]>,
     [(); T::BLOCKSIZE]: Sized,
 {
     fn sign<'a>(
@@ -126,7 +126,7 @@ fn sign<'a, T: RsaKey>(
 ) -> Result<&'a [u8]>
 where 
     [(); T::BLOCKSIZE]: Sized,
-    T: Decrypt<T>
+    T: Decrypt<T> + RsaKey<OperandType = [u32; T::OperandWords]>
 {
     // Write the unencrypted signature with padding to a temporary buffer
     let mut em_buffer = [0xffu8; T::BLOCKSIZE];
