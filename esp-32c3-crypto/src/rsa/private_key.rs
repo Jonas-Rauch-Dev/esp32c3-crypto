@@ -102,13 +102,17 @@ impl<T> RsaPrivateKey <T>
 where
     T: RsaKey<OperandType = [u32; T::OperandWords]>
 {
-    pub fn decrypt<'a, P: PaddingScheme<T>>(&self, padding: P, ciphertext: &[u8], plaintext_buffer: &'a [u8]) -> Result<&'a [u8]> {
-        padding.decrypt(self, ciphertext, plaintext_buffer)
+    pub fn decrypt<'a, P: PaddingScheme<T>>(
+        &self, rsa: &mut Rsa<Blocking>, padding: &P, ciphertext: &[u8], plaintext_buffer: &'a mut [u8]
+    ) -> Result<&'a [u8]> 
+    where 
+        T: Decrypt<T>
+    {
+        padding.decrypt(rsa, self, ciphertext, plaintext_buffer)
     }
 
     pub fn sign<'a, S>(
-        &self, rng: Rng, rsa: &mut Rsa<Blocking>, scheme: &S, digest_in: &[u8], signature_out: &'a mut [u8]
-    ) -> Result<&'a [u8]>
+        &self, rng: Rng, rsa: &mut Rsa<Blocking>, scheme: &S, digest_in: &[u8], signature_out: &'a mut [u8]) -> Result<&'a [u8]>
     where
         S: SignatureScheme<T>,
         T: Decrypt<T>

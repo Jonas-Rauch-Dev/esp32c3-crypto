@@ -77,10 +77,13 @@ where
     pub fn encrypt<
         'a, P: PaddingScheme<T>
     >(
-        &self, rng: Rng, padding: P, plaintext: &[u8], ciphertext_buffer: &'a mut [u8]
+        &self, rsa: &mut Rsa<Blocking>, rng: &mut Rng, padding: &P, plaintext: &[u8], ciphertext_buffer: &'a mut [u8]
     ) 
-    -> Result<&'a [u8]>  {
-        padding.encrypt(rng, &self, plaintext, ciphertext_buffer)
+    -> Result<&'a [u8]>
+    where 
+        T: Encrypt<T>
+    {
+        padding.encrypt(rsa, rng, self, plaintext, ciphertext_buffer)
     }
 
     pub fn verify<S: SignatureScheme<T>>(

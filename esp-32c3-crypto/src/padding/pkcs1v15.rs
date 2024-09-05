@@ -1,11 +1,12 @@
-use crypto_bigint::subtle::ConstantTimeEq;
-use esp_hal::{sha::ShaMode, Blocking};
+use crypto_bigint::subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
+use esp_hal::{rng::Rng, rsa::Rsa, sha::ShaMode, Blocking};
+use zeroize::Zeroize;
 
 use crate::{
     error::{Error, Result},
     hash::sha::HashAlgorithm,
-    rsa::{Encrypt, Decrypt, RsaKey, RsaPrivateKey},
-    traits::SignatureScheme, utils
+    rsa::{Decrypt, Encrypt, RsaKey, RsaPrivateKey, RsaPublicKey},
+    traits::{PaddingScheme, SignatureScheme}, utils
 };
 
 
@@ -162,4 +163,121 @@ fn pkcs1v15_sign_pad<'a>(prefix: &[u8], digest_in: &[u8], k: usize, em: &'a mut 
     }
 
     Ok(&em[0..k])
+}
+
+
+pub struct Pkcs1v15Encrypt;
+
+impl<T: RsaKey> PaddingScheme<T> for Pkcs1v15Encrypt 
+where
+    T: RsaKey<OperandType = [u32; T::OperandWords]>,
+    [(); T::BLOCKSIZE]: Sized,
+{
+    fn encrypt<'a>(
+        &self,
+        rsa: &mut Rsa<Blocking>,
+        rng: &mut Rng,
+        pub_key: &RsaPublicKey<T>,
+        plaintext: &[u8],
+        ciphertext_buffer: &'a mut [u8]
+    ) 
+    -> Result<&'a [u8]>
+    where 
+        T: Encrypt<T>
+    {
+        let mut em: [u8; T::BLOCKSIZE] = pkcs1v15_encrypt_pad_le(rng, plaintext)?;
+        let result = T::encrypt(rsa, pub_key, &em, ciphertext_buffer)?;
+        em.zeroize();
+        Ok(result)
+    }
+
+    fn decrypt<'a>(
+        &self,
+        rsa: &mut Rsa<Blocking>,
+        priv_key: &RsaPrivateKey<T>,
+        ciphertext: &[u8],
+        plaintext_buffer: &'a mut [u8]
+    ) 
+    -> Result<&'a [u8]>
+    where
+        T: Decrypt<T> {
+
+
+            // Write ciphertext in le to cipher_buffer
+            let mut cipher_buffer = [0u8; T::BLOCKSIZE];
+            for (i, &b) in ciphertext.iter().rev().enumerate() {
+                cipher_buffer[i] = b;
+            }
+
+            let mut buffer = [0u8; T::BLOCKSIZE];
+            let decryption_result = T::decrypt(rsa, priv_key, &cipher_buffer, &mut buffer)?;
+
+            let result = pkcs1v15_encrypt_unpad_be::<{T::BLOCKSIZE}>(decryption_result, plaintext_buffer)?;
+            buffer.zeroize();
+            cipher_buffer.zeroize();
+            Ok(result)
+        }
+}
+
+
+fn pkcs1v15_encrypt_pad_le<const K: usize>(rng: &mut Rng, plaintext: &[u8]) -> Result<[u8; K]> {
+    if plaintext.len() > K - 11 {
+        return Err(Error::MessageTooLong);
+    }
+
+    let mut out = [0u8; K];
+
+    out[K - 2] = 2;
+    non_zero_random_bytes(rng, &mut out[plaintext.len() + 1..K - 2]);
+    out[plaintext.len()] = 0;
+    for (i, &b) in plaintext.iter().rev().enumerate() {
+        out[i] = b;
+    }
+    // out[..plaintext.len()].copy_from_slice(plaintext);
+    Ok(out)
+}
+
+
+fn non_zero_random_bytes(rng: &mut Rng, out: &mut [u8]) {
+    for i in 0..out.len() {
+        loop {
+            rng.read(&mut out[i..i+1]);
+            if out[i] != 0 { break; }
+        }
+    }
+}
+
+fn pkcs1v15_encrypt_unpad_be<'a, const K: usize>(decryption_result: &[u8], plaintext_buffer: &'a mut [u8]) -> Result<&'a [u8]> {
+    let first_byte_is_zero = decryption_result[0].ct_eq(&0u8);
+    let second_byte_is_two = decryption_result[1].ct_eq(&2u8);
+
+    let mut looking_for_index = 1u8;
+    let mut index = 0u32;
+
+    for (i, el) in decryption_result.iter().enumerate().skip(2) {
+        let equals_zero = el.ct_eq(&0u8);
+        index.conditional_assign(
+            &(i as u32),
+            Choice::from(looking_for_index) & equals_zero
+        );
+        looking_for_index.conditional_assign(&0u8, equals_zero);
+    }
+
+    let valid_ps = Choice::from((((2i32 + 8i32 - index as i32 - 1i32) >> 31) & 1) as u8);
+    let valid = first_byte_is_zero 
+        & second_byte_is_two 
+        & Choice::from(!looking_for_index & 1) & valid_ps;
+
+
+    index = u32::conditional_select(
+        &0, 
+        &(index + 1), 
+        valid
+    );
+
+    let idx = index as usize;
+
+    plaintext_buffer[..K - idx].copy_from_slice(&decryption_result[idx..]);
+
+    Ok(&plaintext_buffer[..K - idx])
 }

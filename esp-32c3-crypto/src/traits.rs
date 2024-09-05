@@ -1,12 +1,33 @@
 use esp_hal::rng::Rng;
+use esp_hal::rsa::Rsa;
 use esp_hal::Blocking;
 
 use crate::rsa::{Encrypt, Decrypt, RsaKey, RsaPrivateKey, RsaPublicKey};
 use crate::error::Result;
 
 pub trait PaddingScheme<T: RsaKey> where T: RsaKey<OperandType = [u32; T::OperandWords]> {
-    fn decrypt<'a>(self, priv_key: &RsaPrivateKey<T>, ciphertext: &[u8], plaintext_buffer: &'a [u8]) -> Result<&'a [u8]>;
-    fn encrypt<'a>(self, rng: Rng, pub_key: &RsaPublicKey<T>, plaintext: &[u8], ciphertext_buffer: &'a [u8]) -> Result<&'a [u8]>;
+    fn decrypt<'a>(
+        &self,
+        rsa: &mut Rsa<Blocking>,
+        priv_key: &RsaPrivateKey<T>,
+        ciphertext: &[u8],
+        plaintext_buffer: &'a mut [u8]
+    ) 
+    -> Result<&'a [u8]>
+    where
+        T: Decrypt<T>;
+
+    fn encrypt<'a>(
+        &self,
+        rsa: &mut Rsa<Blocking>,
+        rng: &mut Rng,
+        pub_key: &RsaPublicKey<T>,
+        plaintext: &[u8],
+        ciphertext_buffer: &'a mut [u8]
+    ) 
+    -> Result<&'a [u8]>
+    where 
+        T: Encrypt<T>;
 }
 
 pub trait SignatureScheme<T: RsaKey> where T: RsaKey<OperandType = [u32; T::OperandWords]>{
