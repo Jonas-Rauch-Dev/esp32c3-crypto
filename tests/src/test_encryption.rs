@@ -1,6 +1,6 @@
 use core::str;
 
-use esp_32c3_crypto::{hash::sha::{Esp32C3Sha256, Hash}, padding::pkcs1v15::Pkcs1v15Encrypt, rsa::{RsaKey, RsaKeySize1024, RsaKeySize2048, RsaPrivateKey, RsaPublicKey}};
+use esp_32c3_crypto::{error::Error, hash::sha::{Esp32C3Sha256, Hash}, padding::pkcs1v15::Pkcs1v15Encrypt, rsa::{RsaKey, RsaKeySize1024, RsaKeySize2048, RsaPrivateKey, RsaPublicKey}};
 use esp_hal::{peripherals::Peripherals, rng::Rng, rsa::Rsa};
 
 
@@ -21,7 +21,20 @@ pub fn test_encryption() {
     } else {
         log::info!("Encryption test for 2048 bit rsa key succeded");
     };
+
+    if ! test_1024_enc_buffer_to_small() {
+        log::error!("Error check for Error::BufferToSmall on encrytpion failed!");
+    } else {
+        log::info!("Error check for Error::BufferToSmall on encryption succeeded!");
+    }
+
+    if ! test_1024_dec_buffer_to_small() {
+        log::error!("Error check for Error::BufferToSmall on decrytpion failed!");
+    } else {
+        log::info!("Error check for Error::BufferToSmall on decryption succeeded!");
+    }
 }
+
 
 const public_key_1024: &[u8] = include_bytes!("../keys/public_key_1024.der");
 const private_key_1024: &[u8] = include_bytes!("../keys/private_key_1024.der");
@@ -166,7 +179,7 @@ fn test_2048() -> bool {
     }
 
     // Decrypt the openssl encrypted file
-    let mut plaintext_buffer = [0u8; 128];
+    let mut plaintext_buffer = [0u8; RsaKeySize2048::BLOCKSIZE];
     let plaintext = rsa_private_key.decrypt(&mut rsa, &padding, enc_2048_test_file, &mut plaintext_buffer);
     let plaintext = match plaintext {
         Ok(c) => c,
@@ -186,4 +199,101 @@ fn test_2048() -> bool {
 
     true
 
+}
+
+
+fn test_1024_enc_buffer_to_small() -> bool {
+    let peripherals = unsafe { Peripherals::steal() };
+    let mut rng = Rng::new(peripherals.RNG);
+
+    let rsa = peripherals.RSA;
+    let mut rsa = Rsa::new(rsa, None);
+
+    // Parse Pub key
+    let rsa_public_key  = RsaPublicKey::<RsaKeySize1024>::new_from_der(public_key_1024);
+    if let Err(e) = rsa_public_key {
+            log::error!("Failed to parse 1024 Byte Public Key with error: {:?}", e);
+            return false;
+    }
+    let rsa_public_key = rsa_public_key.unwrap();
+
+
+    let padding = Pkcs1v15Encrypt;
+
+    // Encrypt the test file
+    let mut ciphertext_buffer = [0u8; 1];
+    let ciphertext = rsa_public_key.encrypt(&mut rsa, &mut rng, &padding, &test_file, &mut ciphertext_buffer);
+
+    // Check if the correct error was thrown
+    match ciphertext {
+        Ok(c) => {
+            log::error!("Encryption succeded but should have failed!");
+            false
+        },
+        Err(e) => {
+            if let Error::BufferTooSmall = e {
+                true
+            } else {
+                log::error!("Encryption failed with error: {:?}", e);
+                false
+            }
+        }
+    }
+}
+
+fn test_1024_dec_buffer_to_small() -> bool {
+    let peripherals = unsafe { Peripherals::steal() };
+    let mut rng = Rng::new(peripherals.RNG);
+
+    let rsa = peripherals.RSA;
+    let mut rsa = Rsa::new(rsa, None);
+
+    // Parse Pub key
+    let rsa_public_key  = RsaPublicKey::<RsaKeySize1024>::new_from_der(public_key_1024);
+    if let Err(e) = rsa_public_key {
+            log::error!("Failed to parse 1024 Byte Public Key with error: {:?}", e);
+            return false;
+    }
+    let rsa_public_key = rsa_public_key.unwrap();
+
+    // Parse Priv key
+    let rsa_private_key = RsaPrivateKey::<RsaKeySize1024>::new_from_der(private_key_1024);
+    if let Err(e) = rsa_private_key {
+            log::error!("Failed to parse 1024 Byte Private Key with error: {:?}", e);
+            return false;
+    }
+    let rsa_private_key = rsa_private_key.unwrap();
+
+    let padding = Pkcs1v15Encrypt;
+
+    // Encrypt the test file
+    let mut ciphertext_buffer = [0u8; RsaKeySize2048::BLOCKSIZE];
+    let ciphertext = rsa_public_key.encrypt(&mut rsa, &mut rng, &padding, &test_file, &mut ciphertext_buffer);
+    let ciphertext = match ciphertext {
+        Ok(c) => c,
+        Err(e) => {
+            log::error!("Encryption failed with error: {:?}", e);
+            return false;
+        }
+    };
+
+    // Decrypt the ciphertext -> should fail with Error::BufferToSmall
+    let mut plaintext_buffer = [0u8; 1];
+    let plaintext = rsa_private_key.decrypt(&mut rsa,  &padding, ciphertext, &mut plaintext_buffer);
+
+    // Check if the correct error was thrown
+    match plaintext {
+        Ok(c) => {
+            log::error!("Decryption succeded but should have failed, with result: {:?}!", plaintext);
+            false
+        },
+        Err(e) => {
+            if let Error::BufferTooSmall = e {
+                true
+            } else {
+                log::error!("Decryption failed with error: {:?}", e);
+                false
+            }
+        }
+    }
 }

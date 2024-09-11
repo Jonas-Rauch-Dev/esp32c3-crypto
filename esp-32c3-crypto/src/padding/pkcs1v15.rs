@@ -65,6 +65,10 @@ where
             return Err(Error::InputNotHashed);
         }
 
+        if signature_out.len() < T::BLOCKSIZE {
+            return Err(Error::BufferTooSmall);
+        }
+
         sign(rng, rsa, priv_key, &self.prefix, digest_in, signature_out)
     }
 
@@ -185,6 +189,10 @@ where
     where 
         T: Encrypt<T>
     {
+        if ciphertext_buffer.len() < T::BLOCKSIZE {
+            return Err(Error::BufferTooSmall);
+        }
+
         let mut em: [u8; T::BLOCKSIZE] = pkcs1v15_encrypt_pad_le(rng, plaintext)?;
         let result = T::encrypt(rsa, pub_key, &em, ciphertext_buffer)?;
         em.zeroize();
@@ -202,6 +210,9 @@ where
     where
         T: Decrypt<T> {
 
+            if plaintext_buffer.len() < T::BLOCKSIZE {
+                return Err(Error::BufferTooSmall);
+            }
 
             // Write ciphertext in le to cipher_buffer
             let mut cipher_buffer = [0u8; T::BLOCKSIZE];
