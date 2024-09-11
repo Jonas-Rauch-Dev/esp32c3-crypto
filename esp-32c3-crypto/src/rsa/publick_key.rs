@@ -3,13 +3,13 @@ use core::marker::PhantomData;
 use crate::{error::{Error, Result}, traits::{PaddingScheme, PublicKeyParts, SignatureScheme}};
 
 
-use crypto_bigint::{Uint, Zero, U1024};
+use crypto_bigint::Uint;
 use esp_hal::{rng::Rng, rsa::Rsa, Blocking};
 use spki::SubjectPublicKeyInfoRef;
 use pkcs1::RsaPublicKey as RsaPubKey;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::{Encrypt, RsaKey, RsaPrivateKey};
+use super::{Encrypt, RsaKey};
 
 
 #[derive(Debug)]

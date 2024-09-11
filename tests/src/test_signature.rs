@@ -4,7 +4,7 @@ use esp_32c3_crypto::{
     },
     padding::pkcs1v15::Pkcs1v15Sign,
     rsa::{
-        RsaKey, RsaKeySize1024, RsaPrivateKey, RsaPublicKey
+        RsaKey, RsaKeySize1024, RsaKeySize2048, RsaPrivateKey, RsaPublicKey
     },
     traits::SignatureScheme
 };
@@ -32,12 +32,261 @@ pub fn test_rsa_signature_pkcs1v15() {
         log::info!("pkcs1v15 signature test for 1024 bit rsa key with sha256 succeded");
     };
 
+    if ! test_rsa_signature_pkcs1v15_2048_sha1() {
+        log::error!("pkcs1v15 signature test for 2048 bit rsa key with sha1 failed");
+    } else {
+        log::info!("pkcs1v15 signature test for 2048 bit rsa key with sha1 succeded");
+    };
+
+    if ! test_rsa_signature_pkcs1v15_2048_sha224() {
+        log::error!("pkcs1v15 signature test for 2048 bit rsa key with sha224 failed");
+    } else {
+        log::info!("pkcs1v15 signature test for 2048 bit rsa key with sha224 succeded");
+    };
+
+    if ! test_rsa_signature_pkcs1v15_2048_sha256() {
+        log::error!("pkcs1v15 signature test for 2048 bit rsa key with sha256 failed");
+    } else {
+        log::info!("pkcs1v15 signature test for 2048 bit rsa key with sha256 succeded");
+    };
 }
 
+// ########
+// # 2048 #
+// ########
+const public_key_2048: &[u8] = include_bytes!("../keys/public_key_2048.der");
+const private_key_2048: &[u8] = include_bytes!("../keys/private_key_2048.der");
 
+const test_file_sign_2048_sha1: &[u8] = include_bytes!("../signatures/test_file.txt.sign_2048_sha1");
+
+pub fn test_rsa_signature_pkcs1v15_2048_sha1() -> bool {
+    let peripherals = unsafe { Peripherals::steal() };
+    let rng = Rng::new(peripherals.RNG);
+
+    let rsa = peripherals.RSA;
+    let mut rsa = Rsa::new(rsa, None);
+
+    let mut hash = Hash::<Esp32C3Sha1>::new(peripherals.SHA);
+
+    // Parse Pub key
+    let rsa_public_key  = RsaPublicKey::<RsaKeySize2048>::new_from_der(public_key_2048);
+    if let Err(e) = rsa_public_key {
+            log::error!("Failed to parse 1024 Byte Public Key with error: {:?}", e);
+            return false;
+    }
+    let rsa_public_key = rsa_public_key.unwrap();
+
+    // Parse Priv key
+    let rsa_private_key= RsaPrivateKey::<RsaKeySize2048>::new_from_der(private_key_2048);
+    if let Err(e) = rsa_private_key {
+            log::error!("Failed to Parse 1024 Byte Private Key with error: {:?}", e);
+            return false;
+    }
+    let rsa_private_key= rsa_private_key.unwrap();
+
+    // Creat Signature scheme
+    let scheme = Pkcs1v15Sign::new::<Esp32C3Sha1>();
+
+    // Hash the test file
+    let mut digest_buffer = [0u8; Esp32C3Sha1::output_len];
+    let digest = hash.hash(test_file, &mut digest_buffer).unwrap();
+
+    // Create the Signature
+    let mut signature_buffer = [0u8; RsaKeySize2048::BLOCKSIZE];
+    let signature = scheme
+        .sign(&rsa_private_key, rng, &mut rsa, &digest, &mut signature_buffer);
+
+    // Unpack the signature
+    let signature = match signature {
+        Err(e) => {
+            log::error!("Failed to create signature with error: {:?}", e);
+            return false;
+        },
+        Ok(sig) => sig,
+    };
+
+    // Compare Signature to openssl version
+    for (i, &b) in signature.iter().enumerate() {
+        if test_file_sign_2048_sha1[i] != b {
+            log::error!("Openssl Signature does not match Esp32c3Crypto Signature at position: {i}");
+            return false;
+        }
+    }
+
+    // Verify Openssl Signature
+    let verification_result = scheme.verify(&rsa_public_key, &mut rsa, digest, test_file_sign_2048_sha1);
+    if let Err(e) = verification_result {
+        log::error!("Failed to verify Openssl signature!");
+        return false;
+    }
+
+    // Verify Esp32c3 Crypto Signature
+    let verification_result = scheme.verify(&rsa_public_key, &mut rsa, digest, signature);
+    if let Err(e) = verification_result {
+        log::error!("Failed to verify Esp32c3Crypto signature!");
+        return false;
+    }
+
+    true
+
+}
+
+const test_file_sign_2048_sha224: &[u8] = include_bytes!("../signatures/test_file.txt.sign_2048_sha224");
+
+pub fn test_rsa_signature_pkcs1v15_2048_sha224() -> bool {
+    let peripherals = unsafe { Peripherals::steal() };
+    let rng = Rng::new(peripherals.RNG);
+
+    let rsa = peripherals.RSA;
+    let mut rsa = Rsa::new(rsa, None);
+
+    let mut hash = Hash::<Esp32C3Sha224>::new(peripherals.SHA);
+
+    // Parse Pub key
+    let rsa_public_key  = RsaPublicKey::<RsaKeySize2048>::new_from_der(public_key_2048);
+    if let Err(e) = rsa_public_key {
+            log::error!("Failed to parse 1024 Byte Public Key with error: {:?}", e);
+            return false;
+    }
+    let rsa_public_key = rsa_public_key.unwrap();
+
+    // Parse Priv key
+    let rsa_private_key= RsaPrivateKey::<RsaKeySize2048>::new_from_der(private_key_2048);
+    if let Err(e) = rsa_private_key {
+            log::error!("Failed to Parse 1024 Byte Private Key with error: {:?}", e);
+            return false;
+    }
+    let rsa_private_key= rsa_private_key.unwrap();
+
+    // Creat Signature scheme
+    let scheme = Pkcs1v15Sign::new::<Esp32C3Sha224>();
+
+    // Hash the test file
+    let mut digest_buffer = [0u8; Esp32C3Sha224::output_len];
+    let digest = hash.hash(test_file, &mut digest_buffer).unwrap();
+
+    // Create the Signature
+    let mut signature_buffer = [0u8; RsaKeySize2048::BLOCKSIZE];
+    let signature = scheme
+        .sign(&rsa_private_key, rng, &mut rsa, &digest, &mut signature_buffer);
+
+    // Unpack the signature
+    let signature = match signature {
+        Err(e) => {
+            log::error!("Failed to create signature with error: {:?}", e);
+            return false;
+        },
+        Ok(sig) => sig,
+    };
+
+    // Compare Signature to openssl version
+    for (i, &b) in signature.iter().enumerate() {
+        if test_file_sign_2048_sha224[i] != b {
+            log::error!("Openssl Signature does not match Esp32c3Crypto Signature at position: {i}");
+            return false;
+        }
+    }
+
+    // Verify Openssl Signature
+    let verification_result = scheme.verify(&rsa_public_key, &mut rsa, digest, test_file_sign_2048_sha224);
+    if let Err(e) = verification_result {
+        log::error!("Failed to verify Openssl signature!");
+        return false;
+    }
+
+    // Verify Esp32c3 Crypto Signature
+    let verification_result = scheme.verify(&rsa_public_key, &mut rsa, digest, signature);
+    if let Err(e) = verification_result {
+        log::error!("Failed to verify Esp32c3Crypto signature!");
+        return false;
+    }
+
+    true
+
+}
+
+const test_file_sign_2048_sha256: &[u8] = include_bytes!("../signatures/test_file.txt.sign_2048_sha256");
+
+pub fn test_rsa_signature_pkcs1v15_2048_sha256() -> bool {
+
+    let peripherals = unsafe { Peripherals::steal() };
+    let rng = Rng::new(peripherals.RNG);
+
+    let rsa = peripherals.RSA;
+    let mut rsa = Rsa::new(rsa, None);
+
+    let mut hash = Hash::<Esp32C3Sha256>::new(peripherals.SHA);
+
+    // Parse Pub key
+    let rsa_public_key  = RsaPublicKey::<RsaKeySize2048>::new_from_der(public_key_2048);
+    if let Err(e) = rsa_public_key {
+            log::error!("Failed to parse 1024 Byte Public Key with error: {:?}", e);
+            return false;
+    }
+    let rsa_public_key = rsa_public_key.unwrap();
+
+    // Parse Priv key
+    let rsa_private_key= RsaPrivateKey::<RsaKeySize2048>::new_from_der(private_key_2048);
+    if let Err(e) = rsa_private_key {
+            log::error!("Failed to Parse 1024 Byte Private Key with error: {:?}", e);
+            return false;
+    }
+    let rsa_private_key= rsa_private_key.unwrap();
+
+    // Creat Signature scheme
+    let scheme = Pkcs1v15Sign::new::<Esp32C3Sha256>();
+
+    // Hash the test file
+    let mut digest_buffer = [0u8; Esp32C3Sha256::output_len];
+    let digest = hash.hash(test_file, &mut digest_buffer).unwrap();
+
+    // Create the Signature
+    let mut signature_buffer = [0u8; RsaKeySize2048::BLOCKSIZE];
+    let signature = scheme
+        .sign(&rsa_private_key, rng, &mut rsa, &digest, &mut signature_buffer);
+
+    // Unpack the signature
+    let signature = match signature {
+        Err(e) => {
+            log::error!("Failed to create signature with error: {:?}", e);
+            return false;
+        },
+        Ok(sig) => sig,
+    };
+
+    // Compare Signature to openssl version
+    for (i, &b) in signature.iter().enumerate() {
+        if test_file_sign_2048_sha256[i] != b {
+            log::error!("Openssl Signature does not match Esp32c3Crypto Signature at position: {i}");
+            return false;
+        }
+    }
+
+    // Verify Openssl Signature
+    let verification_result = scheme.verify(&rsa_public_key, &mut rsa, digest, test_file_sign_2048_sha256);
+    if let Err(e) = verification_result {
+        log::error!("Failed to verify Openssl signature!");
+        return false;
+    }
+
+    // Verify Esp32c3 Crypto Signature
+    let verification_result = scheme.verify(&rsa_public_key, &mut rsa, digest, signature);
+    if let Err(e) = verification_result {
+        log::error!("Failed to verify Esp32c3Crypto signature!");
+        return false;
+    }
+
+    true
+
+}
+
+// ########
+// # 1024 #
+// ########
 const public_key_1024: &[u8] = include_bytes!("../keys/public_key_1024.der");
 const private_key_1024: &[u8] = include_bytes!("../keys/private_key_1024.der");
-const test_file_sign_1024_sha256: &[u8] = include_bytes!("../test_file.txt.sign_1024_sha256");
+
+const test_file_sign_1024_sha256: &[u8] = include_bytes!("../signatures/test_file.txt.sign_1024_sha256");
 
 pub fn test_rsa_signature_pkcs1v15_1024_sha256() -> bool {
 
@@ -113,7 +362,7 @@ pub fn test_rsa_signature_pkcs1v15_1024_sha256() -> bool {
 }
 
 
-const test_file_sign_1024_sha1: &[u8] = include_bytes!("../test_file.txt.sign_1024_sha1");
+const test_file_sign_1024_sha1: &[u8] = include_bytes!("../signatures/test_file.txt.sign_1024_sha1");
 
 pub fn test_rsa_signature_pkcs1v15_1024_sha1() -> bool {
 
@@ -189,7 +438,7 @@ pub fn test_rsa_signature_pkcs1v15_1024_sha1() -> bool {
 }
 
 
-const test_file_sign_1024_sha224: &[u8] = include_bytes!("../test_file.txt.sign_1024_sha224");
+const test_file_sign_1024_sha224: &[u8] = include_bytes!("../signatures/test_file.txt.sign_1024_sha224");
 
 pub fn test_rsa_signature_pkcs1v15_1024_sha224() -> bool {
 
@@ -263,3 +512,4 @@ pub fn test_rsa_signature_pkcs1v15_1024_sha224() -> bool {
 
     true
 }
+

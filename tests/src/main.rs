@@ -10,6 +10,7 @@ use esp_hal::{
 mod test_hash;
 mod test_key_parsing;
 mod test_signature;
+mod test_encryption;
 
 
 #[entry]
@@ -27,6 +28,8 @@ fn main() -> ! {
     test_key_parsing::test_rsa_key_parsing();
 
     test_signature::test_rsa_signature_pkcs1v15();
+
+    test_encryption::test_encryption();
 
     loop {
         log::info!("Tests done!");

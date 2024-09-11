@@ -6,7 +6,7 @@ use crate::{
     error::{Error, Result},
     hash::sha::HashAlgorithm,
     rsa::{Decrypt, Encrypt, RsaKey, RsaPrivateKey, RsaPublicKey},
-    traits::{PaddingScheme, SignatureScheme}, utils
+    traits::{PaddingScheme, SignatureScheme}
 };
 
 
