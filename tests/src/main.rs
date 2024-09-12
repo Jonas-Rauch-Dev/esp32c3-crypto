@@ -11,6 +11,7 @@ mod test_hash;
 mod test_key_parsing;
 mod test_signature;
 mod test_encryption;
+mod test_b64_key_parsing;
 
 
 #[entry]
@@ -23,13 +24,15 @@ fn main() -> ! {
 
     esp_println::logger::init_logger_from_env();
 
-    test_hash::test_hash();
+    // test_hash::test_hash();
 
-    test_key_parsing::test_rsa_key_parsing();
+    // test_key_parsing::test_rsa_key_parsing();
 
-    test_signature::test_rsa_signature_pkcs1v15();
+    test_b64_key_parsing::test_b64_key_parsing();
 
-    test_encryption::test_encryption();
+    // test_signature::test_rsa_signature_pkcs1v15();
+
+    // test_encryption::test_encryption();
 
     loop {
         log::info!("Tests done!");

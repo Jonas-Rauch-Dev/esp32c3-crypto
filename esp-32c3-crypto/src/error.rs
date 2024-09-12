@@ -14,4 +14,5 @@ pub enum Error {
     Internal,
     Verification,
     InvalidBlockSize,
+    InvalidEncoding,
 }

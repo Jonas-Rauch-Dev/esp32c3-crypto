@@ -3,6 +3,7 @@ use core::marker::PhantomData;
 use crate::{error::{Error, Result}, traits::{PaddingScheme, PublicKeyParts, SignatureScheme}};
 
 
+use base64::Engine;
 use crypto_bigint::Uint;
 use esp_hal::{rng::Rng, rsa::Rsa, Blocking};
 use spki::SubjectPublicKeyInfoRef;
@@ -26,14 +27,13 @@ where
 
 impl<T: RsaKey> RsaPublicKey<T> 
 where 
-    T: RsaKey<OperandType = [u32; T::OperandWords]>
+    T: RsaKey<OperandType = [u32; T::OperandWords]>,
+    [(); T::OperandWords]: Sized,
+    [(); {T::OperandWords} * 2 + 1]: Sized,
+    [(); T::BLOCKSIZE]: Sized,
 {
     pub fn new_from_der(bytes: &[u8])
     -> Result<Self>
-    where 
-        [(); T::OperandWords]: Sized,
-        [(); {T::OperandWords} * 2 + 1]: Sized,
-        [(); T::BLOCKSIZE]: Sized,
     {
         // Parse the public keys bytes to rust data structure
         let pub_key_info = SubjectPublicKeyInfoRef::try_from(bytes)
@@ -66,6 +66,21 @@ where
         Ok (Self {
             d: d.into(), n: n.into(), m_prime, r: r.into(), phantom: PhantomData
         })
+    }
+
+    pub fn new_from_b64_der(string: &str) -> Result<Self> {
+        let mut bytes = [0u8; 4096];
+        let written_bytes = match base64::prelude::BASE64_STANDARD.decode_slice(string, &mut bytes) {
+            Ok(wb) => wb,
+            Err(e) => {
+                match e {
+                    base64::DecodeSliceError::DecodeError(_) => return Err(Error::InvalidEncoding),
+                    base64::DecodeSliceError::OutputSliceTooSmall => return Err(Error::RsaKeySizeError)
+                }
+            }
+        };
+
+        return Self::new_from_der(&bytes[..written_bytes]);
     }
 }
 

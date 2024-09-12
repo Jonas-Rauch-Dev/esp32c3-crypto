@@ -1,5 +1,6 @@
 use core::marker::PhantomData;
 
+use base64::Engine;
 use crypto_bigint::Uint;
 use esp_hal::{rng::Rng, rsa::Rsa, Blocking};
 use pkcs8::PrivateKeyInfo;
@@ -26,14 +27,13 @@ where
 
 impl<T> RsaPrivateKey <T> 
 where 
-    T: RsaKey<OperandType = [u32; T::OperandWords]>
+    T: RsaKey<OperandType = [u32; T::OperandWords]>,
+    [(); T::OperandWords]: Sized,
+    [(); T::OperandWords * 2 + 1]: Sized,
+    [(); T::BLOCKSIZE]: Sized,
 {
     pub fn new_from_der(private_key_der:&[u8])
     -> Result<Self>
-    where 
-        [(); T::OperandWords]: Sized,
-        [(); T::OperandWords * 2 + 1]: Sized,
-        [(); T::BLOCKSIZE]: Sized,
     {
         // Parse private key bytes to rust data structure
         let priv_key_info = PrivateKeyInfo::try_from(private_key_der)
@@ -64,6 +64,21 @@ where
         Ok( Self {
             d: d.into(), n: n.into(), m_prime, r: r.into(), e: e.into(), phantom: PhantomData
         })
+    }
+
+    pub fn new_from_b64_der(string: &str) -> Result<Self> {
+        let mut bytes = [0u8; 4096];
+        let written_bytes = match base64::prelude::BASE64_STANDARD.decode_slice(string, &mut bytes) {
+            Ok(wb) => wb,
+            Err(e) => {
+                match e {
+                    base64::DecodeSliceError::DecodeError(_) => return Err(Error::InvalidEncoding),
+                    base64::DecodeSliceError::OutputSliceTooSmall => return Err(Error::RsaKeySizeError)
+                }
+            }
+        };
+
+        return Self::new_from_der(&bytes[..written_bytes]);
     }
 }
 
